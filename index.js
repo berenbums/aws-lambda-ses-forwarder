@@ -369,3 +369,4 @@ Promise.series = function(promises, initValue) {
     return chain.then(promise);
   }, Promise.resolve(initValue));
 };
+
