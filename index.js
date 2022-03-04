@@ -39,9 +39,9 @@ var defaultConfig = {
   fromEmail: process.env.FROM_EMAIL || "noreply@example.com",
   subjectPrefix: process.env.SUBJECT_PREFIX || "",
   emailBucket: process.env.EMAIL_BUCKET || "s3-bucket-name",
-  emailKeyPrefix: process.env.EMAIL_KEY_PREFIX || "emailsPrefix/",
+  emailKeyPrefix: process.env.EMAIL_KEY_PREFIX || "",
   allowPlusSign: process.env.ALLOW_PLUS_SIGN || true,
-  forwardMapping: process.env.FORWARD_MAPPING || {
+  forwardMapping: JSON.parse(process.env.FORWARD_MAPPING) || {
     "info@example.com": [
       "example.john@example.com",
       "example.jen@example.com"
