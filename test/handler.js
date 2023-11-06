@@ -4,6 +4,8 @@
 var assert = require("assert");
 var fs = require("fs");
 
+const {GetObjectCommand, CopyObjectCommand} = require('@aws-sdk/client-s3');
+
 var index = require("../index");
 
 describe('index.js', function() {
@@ -16,15 +18,21 @@ describe('index.js', function() {
       };
       var overrides = {
         s3: {
-          copyObject: function(options, callback) {
-            callback(null);
-          },
-          getObject: function(options, callback) {
-            callback(null, {Body: "email data"});
+          send: function(options, callback) {
+            if (options instanceof CopyObjectCommand)
+              callback(null);
+            else if (options instanceof GetObjectCommand)
+              callback(null, {
+                Body: {
+                  transformToString: function() {
+                    return "email data";
+                  }
+                }
+              });
           }
         },
         ses: {
-          sendRawEmail: function(options, callback) {
+          send: function(options, callback) {
             callback(null, {status: "ok"});
           }
         },
@@ -57,25 +65,21 @@ describe('index.js', function() {
       index.handler(event, context, callback, overrides);
     });
 
-    // it('should report failure for invalid steps', function(done) {
-    //   var event = {};
-    //   var context = {};
-    //   var callback = function(err) {
-    //     if (err) assert.ok(true, "callback function received error");
-    //     done();
-    //   };
-    //   var overrides = {
-    //     steps: [
-    //       1,
-    //       ['test']
-    //     ]
-    //   };
-    //   try {
-    //     index.handler(event, context, callback, overrides);
-    //   } catch (err) {
-    //     if (err) assert.ok(true, "caught error");
-    //   }
-    // });
+    it('should report failure for invalid steps', function(done) {
+      var event = {};
+      var context = {};
+      var callback = function(err) {
+        if (err) assert.ok(true, "callback function received error");
+        done();
+      };
+      var overrides = {
+        steps: [
+          1,
+          ['test']
+        ]
+      };
+      index.handler(event, context, callback, overrides);
+    });
 
     it('should report failure for steps passing an error', function(done) {
       var event = {};
