@@ -3,7 +3,7 @@
 const { S3Client, CopyObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { SESv2Client, SendEmailCommand } = require("@aws-sdk/client-sesv2");
 
-console.log("AWS Lambda SES Forwarder // @arithmetric // Version 5.1.0");
+console.log("AWS Lambda SES Forwarder // @arithmetric // Version 6.0.0");
 
 // Configure the S3 bucket and key prefix for stored raw emails, and the
 // mapping of email addresses to forward from and to.
@@ -42,7 +42,8 @@ var defaultConfig = {
   emailBucket: process.env.EMAIL_BUCKET || "",
   emailKeyPrefix: process.env.EMAIL_KEY_PREFIX || "",
   allowPlusSign: process.env.ALLOW_PLUS_SIGN || true,
-  forwardMapping: JSON.parse(process.env.FORWARD_MAPPING) || ""
+  forwardMapping: process.env.FORWARD_MAPPING ?
+    JSON.parse(process.env.FORWARD_MAPPING) : {}
 };
 
 /**
@@ -202,6 +203,12 @@ exports.processMessage = function(data) {
   var header = match && match[1] ? match[1] : data.emailData;
   var body = match && match[2] ? match[2] : '';
 
+  // Remove any Reply-To header with an empty address (e.g. `Reply-To: "N" <>`),
+  // which SES rejects with "BadRequestException: Empty address". Stripping it
+  // here lets the logic below regenerate a valid Reply-To from the From address.
+  header = header.replace(
+    /^reply-to:[\t ]?.*<\s*>.*\r?\n(\s+.*\r?\n)*/mgi, '');
+
   // Add "Reply-To:" with the "From" address if it doesn't already exists
   if (!/^reply-to:[\t ]?/mi.test(header)) {
     match = header.match(/^from:[\t ]?(.*(?:\r?\n\s+.*)*\r?\n)/mi);
@@ -253,13 +260,13 @@ exports.processMessage = function(data) {
   }
 
   // Remove the Return-Path header.
-  header = header.replace(/^return-path:[\t ]?(.*)\r?\n/mgi, '');
+  header = header.replace(/^return-path:[\t ]?.*\r?\n(\s+.*\r?\n)*/mgi, '');
 
   // Remove Sender header.
-  header = header.replace(/^sender:[\t ]?(.*)\r?\n/mgi, '');
+  header = header.replace(/^sender:[\t ]?.*\r?\n(\s+.*\r?\n)*/mgi, '');
 
   // Remove Message-ID header.
-  header = header.replace(/^message-id:[\t ]?(.*)\r?\n/mgi, '');
+  header = header.replace(/^message-id:[\t ]?.*\r?\n(\s+.*\r?\n)*/mgi, '');
 
   // Remove all DKIM-Signature headers to prevent triggering an
   // "InvalidParameterValue: Duplicate header 'DKIM-Signature'" error.
