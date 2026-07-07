@@ -254,5 +254,40 @@ describe('index.js', function() {
           done();
         });
     });
+
+    // Regression: some senders emit a malformed From where the angle brackets
+    // hold a display name rather than an address (e.g.
+    // `Some Sender <Some Sender>`). Forwarding it into a regenerated Reply-To
+    // made SES reject the send with "BadRequestException: Local address
+    // contains control or whitespace". No Reply-To should be added when the
+    // From address is not valid.
+    it('should not add a Reply-To when the From address is invalid',
+      function(done) {
+        var data = {
+          config: {},
+          email: { source: "betsy@example.com" },
+          emailData: [
+            "Received: from example.com (example.com [127.0.0.1])",
+            " for info@example.com;",
+            " Fri, 11 Mar 2016 06:20:55 +0000 (UTC)",
+            "From: Some Sender <Some Sender>",
+            "To: info@example.com",
+            "Subject: Invalid From test",
+            "Date: Fri, 11 Mar 2016 01:20:54 -0500",
+            "",
+            "Body here.",
+            ""
+          ].join("\r\n"),
+          log: console.log,
+          recipients: ["jim@example.com"],
+          originalRecipient: "info@example.com"
+        };
+        index.processMessage(data)
+          .then(function(data) {
+            assert.ok(!/^reply-to:/mi.test(data.emailData),
+              "no Reply-To should be added for an invalid From address");
+            done();
+          });
+      });
   });
 });
