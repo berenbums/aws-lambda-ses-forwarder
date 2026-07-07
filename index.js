@@ -213,7 +213,11 @@ exports.processMessage = function(data) {
   if (!/^reply-to:[\t ]?/mi.test(header)) {
     match = header.match(/^from:[\t ]?(.*(?:\r?\n\s+.*)*\r?\n)/mi);
     var from = match && match[1] ? match[1] : '';
-    if (from) {
+    // Only regenerate a Reply-To when the From address is a syntactically
+    // valid address.
+    var addrMatch = from.match(/<([^>]*)>/);
+    var address = (addrMatch ? addrMatch[1] : from).trim();
+    if (from && /^[^\s@]+@[^\s@]+$/.test(address)) {
       header = header + 'Reply-To: ' + from;
       data.log({
         level: "info",
